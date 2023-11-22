@@ -15,13 +15,13 @@
  * limitations under the License.
  */
 #include "mbed.h"
+#include "bme280.h"
 #include <nsapi_dns.h>
 #include <MQTTClientMbedOs.h>
 
+using namespace sixtron;
+
 namespace {
-#define GROUP_NUMBER            "group2"
-#define MQTT_TOPIC_PUBLISH      "/estia/"GROUP_NUMBER"/uplink"
-#define MQTT_TOPIC_SUBSCRIBE    "/estia/"GROUP_NUMBER"/downlink"
 #define SYNC_INTERVAL           1
 #define MQTT_CLIENT_ID          "6LoWPAN_Node_"GROUP_NUMBER
 }
@@ -29,6 +29,8 @@ namespace {
 // Peripherals
 static DigitalOut led(LED1);
 static InterruptIn button(BUTTON1);
+I2C bus(I2C1_SDA, I2C1_SCL);
+BME280 sensor(&bus, BME280::I2CAddress::Address1);
 
 // Network
 NetworkInterface *network;
@@ -36,7 +38,7 @@ MQTTClient *client;
 
 // MQTT
 // const char* hostname = "fd9f:590a:b158::1";
-const char* hostname = "broker.hivemq.com";
+const char* hostname = "io.adafruit.com";
 int port = 1883;
 
 // Error code
@@ -99,17 +101,65 @@ static void yield(){
  */
 static int8_t publish() {
 
-    char *mqttPayload = "Hello from 6TRON";
+    char pression[64];
+    float pression_data = sensor.pressure();
+    sprintf(pression,"%f",pression_data);
+    pression[63]=0;
+    MQTT::Message message;
+    message.qos = MQTT::QOS1;
+    message.retained = false;
+    message.dup = false;
+    message.payload = (void*)pression;
+    message.payloadlen = strlen(pression);
+
+    printf("Send: %s to MQTT Broker: %s\n", pression, hostname);
+    rc = client->publish("Cooker0923/feeds/pression", message);
+    if (rc != 0) {
+        printf("Failed to publish: %d\n", rc);
+        return rc;
+    }
+    return 0;
+}
+
+static int8_t temperature() {
+
+    char temperature[64];
+    float tem_data = sensor.temperature();
+    sprintf(temperature,"%f",tem_data);
+    temperature[63]=0;
 
     MQTT::Message message;
     message.qos = MQTT::QOS1;
     message.retained = false;
     message.dup = false;
-    message.payload = (void*)mqttPayload;
-    message.payloadlen = strlen(mqttPayload);
+    message.payload = (void*)temperature;
+    message.payloadlen = strlen(temperature);
 
-    printf("Send: %s to MQTT Broker: %s\n", mqttPayload, hostname);
-    rc = client->publish(MQTT_TOPIC_PUBLISH, message);
+    printf("Send: %s to MQTT Broker: %s\n", temperature, hostname);
+    rc = client->publish("Cooker0923/feeds/temperature", message);
+    if (rc != 0) {
+        printf("Failed to publish: %d\n", rc);
+        return rc;
+    }
+    return 0;
+}
+
+static int8_t humidite() {
+
+    char humidite[64];
+    float hum_data = sensor.humidity();
+    sprintf(humidite,"%f",hum_data);
+    humidite[63]=0;
+
+    MQTT::Message message;
+    message.qos = MQTT::QOS1;
+    message.retained = false;
+    message.dup = false;
+    message.payload = (void*)humidite;
+    message.payloadlen = strlen(humidite);
+
+    printf("Send: %s to MQTT Broker: %s\n", humidite, hostname);
+    rc = client->publish("Cooker0923/feeds/humidite", message);
     if (rc != 0) {
         printf("Failed to publish: %d\n", rc);
         return rc;
@@ -169,7 +219,10 @@ int main()
     MQTTPacket_connectData data = MQTTPacket_connectData_initializer;
     data.MQTTVersion = 4;
     data.keepAliveInterval = 25;
-    data.clientID.cstring = MQTT_CLIENT_ID;
+    data.clientID.cstring = "Cooker0923";
+    data.username.cstring = (char*) "Cooker0923"; // Adafruit username
+    data.password.cstring = (char*) "aio_mWyP29GpwnMAUYBTUfVrGc7am6Fr"; // Adafruit user key
+
     if (client->connect(data) != 0){
         printf("Connection to MQTT Broker Failed\n");
     }
@@ -177,17 +230,25 @@ int main()
     printf("Connected to MQTT broker\n");
 
     /* MQTT Subscribe */
-    if ((rc = client->subscribe(MQTT_TOPIC_SUBSCRIBE, MQTT::QOS0, messageArrived)) != 0){
+    if ((rc = client->subscribe("Cooker0923/feeds/6tron", MQTT::QOS0, messageArrived)) != 0){
         printf("rc from MQTT subscribe is %d\r\n", rc);
     }
-    printf("Subscribed to Topic: %s\n", MQTT_TOPIC_SUBSCRIBE);
+
 
     yield();
 
     // Yield every 1 second
     id_yield = main_queue.call_every(SYNC_INTERVAL * 1000, yield);
 
+    if (!sensor.initialize()) {
+        printf("BME280 init error!\n");
+    }
+
+    // Configure
+    sensor.set_sampling();
+
     // Publish
+    
     button.fall(main_queue.event(publish));
 
     main_queue.dispatch_forever();
