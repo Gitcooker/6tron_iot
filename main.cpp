@@ -26,6 +26,7 @@ namespace {
 #define KEY_PART2 "b7iRI7R0n3obJgOb"
 #define SYNC_INTERVAL           1
 #define MQTT_CLIENT_ID          "6LoWPAN_Node_"GROUP_NUMBER
+uint64_t last_publish = 0;
 }
 
 // Peripherals
@@ -114,12 +115,18 @@ static int8_t publish() {
     message.payload = (void*)pression;
     message.payloadlen = strlen(pression);
 
+    uint64_t now = Kernel::get_ms_count();
+    if(now-last_publish < 1000){
+        ThisThread :: sleep_for(1000 - (now - last_publish));
+    }
+
     printf("Send: %s to MQTT Broker: %s\n", pression, hostname);
     rc = client->publish("Cooker0923/feeds/pression", message);
     if (rc != 0) {
         printf("Failed to publish: %d\n", rc);
         return rc;
     }
+    last_publish = Kernel::get_ms_count();
     return 0;
 }
 
@@ -137,12 +144,17 @@ static int8_t temperature() {
     message.payload = (void*)temperature;
     message.payloadlen = strlen(temperature);
 
+    uint64_t now = Kernel::get_ms_count();
+    if(now-last_publish < 1000){
+        ThisThread :: sleep_for(1000 - (now - last_publish));
+    }
     printf("Send: %s to MQTT Broker: %s\n", temperature, hostname);
     rc = client->publish("Cooker0923/feeds/temperature", message);
     if (rc != 0) {
         printf("Failed to publish: %d\n", rc);
         return rc;
     }
+    last_publish = Kernel::get_ms_count();
     return 0;
 }
 
@@ -160,12 +172,18 @@ static int8_t humidite() {
     message.payload = (void*)humidite;
     message.payloadlen = strlen(humidite);
 
+        uint64_t now = Kernel::get_ms_count();
+    if(now-last_publish < 1000){
+        ThisThread :: sleep_for(1000 - (now - last_publish));
+    }
+
     printf("Send: %s to MQTT Broker: %s\n", humidite, hostname);
     rc = client->publish("Cooker0923/feeds/humidite", message);
     if (rc != 0) {
         printf("Failed to publish: %d\n", rc);
         return rc;
     }
+    last_publish = Kernel::get_ms_count();
     return 0;
 }
 void test(){
