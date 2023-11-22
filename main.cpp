@@ -170,8 +170,8 @@ static int8_t humidite() {
 }
 void test(){
     temperature();
-    //ThisThread::sleep_for(1500ms);
-    //humidite();
+    ThisThread::sleep_for(1500ms);
+    humidite();
 
 }
 
