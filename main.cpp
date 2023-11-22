@@ -22,6 +22,8 @@
 using namespace sixtron;
 
 namespace {
+#define KEY_PART1 "aio_kVaf56SlK60G"
+#define KEY_PART2 "b7iRI7R0n3obJgOb"
 #define SYNC_INTERVAL           1
 #define MQTT_CLIENT_ID          "6LoWPAN_Node_"GROUP_NUMBER
 }
@@ -166,6 +168,12 @@ static int8_t humidite() {
     }
     return 0;
 }
+void test(){
+    temperature();
+    //ThisThread::sleep_for(1500ms);
+    //humidite();
+
+}
 
 // main() runs in its own thread in the OS
 // (note the calls to ThisThread::sleep_for below for delays)
@@ -221,7 +229,8 @@ int main()
     data.keepAliveInterval = 25;
     data.clientID.cstring = "Cooker0923";
     data.username.cstring = (char*) "Cooker0923"; // Adafruit username
-    data.password.cstring = (char*) "aio_mWyP29GpwnMAUYBTUfVrGc7am6Fr"; // Adafruit user key
+
+    data.password.cstring = (char*) (KEY_PART1 KEY_PART2); // Adafruit user key
 
     if (client->connect(data) != 0){
         printf("Connection to MQTT Broker Failed\n");
@@ -250,6 +259,6 @@ int main()
     // Publish
     
     button.fall(main_queue.event(publish));
-
+    main_queue.call_every(5000ms,test);
     main_queue.dispatch_forever();
 }
